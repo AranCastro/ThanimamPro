@@ -1,12 +1,13 @@
 cff-version: 1.2.0
-title: "ThanimamPro: Synthesis-Structure-Property Integration Platform"
-message: "If you use this software, please cite it as below."
+title: "ThanimamPro: A Data-Driven Synthesis–Structure–Property Integration Platform"
+message: "If you use this software in your research, please cite it as below."
 type: software
 authors:
-  - family-names: "Contributor"
-    given-names: "Primary"
-    affiliation: "Independent"
+  - family-names: "Castro"
+    given-names: "Aran"
+    affiliation: "Geospatial Campus, India"
+    orcid: "https://orcid.org/0000-0001-8038-606X"
 version: 0.1.0
 date-released: 2026-02-15
-url: "https://github.com/your-org/thanimampro"
-license: MIT
+url: "https://github.com/AranCastro/ThanimamPro"
+license: "MIT"
