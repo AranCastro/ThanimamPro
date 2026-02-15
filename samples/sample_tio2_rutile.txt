@@ -1,0 +1,18 @@
+ThanimamPro sample text diffraction export
+material_system: TiO2
+phase: rutile
+instrument: Cu K-alpha
+
+2theta intensity
+27.44  1000
+36.08   612
+39.19   455
+41.24   322
+44.01   280
+54.32   262
+56.63   241
+62.75   223
+64.05   176
+69.01   140
+
+comment: visible vacancy-related defect broadening
