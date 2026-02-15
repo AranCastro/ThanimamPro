@@ -9,5 +9,6 @@ authors:
     orcid: "https://orcid.org/0000-0001-8038-606X"
 version: "0.1.1"
 date-released: 2026-02-15
+doi: 10.5281/zenodo.18648129
 url: "https://github.com/AranCastro/ThanimamPro"
 license: "MIT"
