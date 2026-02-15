@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">ThanimamPro Logo</title>
+  <desc id="desc">Tamil letter த as an elemental core, surrounded by atomic, crystal, and neural motifs.</desc>
+  <defs>
+    <linearGradient id="coreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B6E4F" />
+      <stop offset="100%" stop-color="#2AA876" />
+    </linearGradient>
+    <linearGradient id="orbitGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0C3B2E" />
+      <stop offset="100%" stop-color="#158B65" />
+    </linearGradient>
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3.5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g fill="none" stroke="#AACFBF" stroke-width="2.2" opacity="0.9">
+    <path d="M114 218 L176 182 L238 218 L176 254 Z" />
+    <path d="M176 254 L238 218 L300 254 L238 290 Z" />
+    <path d="M176 182 L238 146 L300 182 L238 218 Z" />
+    <path d="M238 290 L300 254 L362 290 L300 326 Z" />
+    <path d="M238 146 L300 110 L362 146 L300 182 Z" />
+  </g>
+  <g fill="#5EA992">
+    <circle cx="114" cy="218" r="5" />
+    <circle cx="176" cy="182" r="5" />
+    <circle cx="238" cy="146" r="5" />
+    <circle cx="300" cy="110" r="5" />
+    <circle cx="362" cy="146" r="5" />
+    <circle cx="238" cy="218" r="5" />
+    <circle cx="176" cy="254" r="5" />
+    <circle cx="238" cy="290" r="5" />
+    <circle cx="300" cy="254" r="5" />
+    <circle cx="300" cy="326" r="5" />
+    <circle cx="362" cy="290" r="5" />
+  </g>
+
+  <g fill="none" stroke="url(#orbitGradient)" stroke-width="4.5" opacity="0.95" filter="url(#softGlow)">
+    <ellipse cx="256" cy="256" rx="162" ry="88" transform="rotate(-24 256 256)" />
+    <ellipse cx="256" cy="256" rx="162" ry="88" transform="rotate(26 256 256)" />
+    <ellipse cx="256" cy="256" rx="130" ry="130" />
+  </g>
+
+  <g fill="#0B6E4F">
+    <circle cx="390" cy="162" r="8.5" />
+    <circle cx="132" cy="352" r="8.5" />
+    <circle cx="256" cy="126" r="8.5" />
+    <circle cx="340" cy="382" r="8.5" />
+  </g>
+
+  <g fill="none" stroke="#2D8E6E" stroke-width="3" stroke-linecap="round" opacity="0.9">
+    <path d="M72 334 C112 310 138 294 176 286" />
+    <path d="M332 228 C378 204 414 210 448 240" />
+    <path d="M324 314 C368 324 402 346 430 382" />
+  </g>
+  <g fill="#158B65">
+    <circle cx="72" cy="334" r="6" />
+    <circle cx="176" cy="286" r="6" />
+    <circle cx="332" cy="228" r="6" />
+    <circle cx="448" cy="240" r="6" />
+    <circle cx="324" cy="314" r="6" />
+    <circle cx="430" cy="382" r="6" />
+  </g>
+
+  <g>
+    <circle cx="256" cy="256" r="88" fill="url(#coreGradient)" />
+    <circle cx="256" cy="256" r="88" fill="none" stroke="#E4F2EC" stroke-width="3.5" />
+    <circle cx="256" cy="256" r="58" fill="#0D4D39" opacity="0.2" />
+    <text
+      x="256"
+      y="291"
+      text-anchor="middle"
+      fill="#F6FFFB"
+      font-size="108"
+      font-family="'Nirmala UI', 'Latha', 'Noto Sans Tamil', 'Segoe UI Symbol', sans-serif"
+      font-weight="700"
+      letter-spacing="0.5"
+    >த</text>
+  </g>
+</svg>

@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+title: "ThanimamPro: Synthesis-Structure-Property Integration Platform"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: "Contributor"
+    given-names: "Primary"
+    affiliation: "Independent"
+version: 0.1.0
+date-released: 2026-02-15
+url: "https://github.com/your-org/thanimampro"
+license: MIT
