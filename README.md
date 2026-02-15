@@ -1,49 +1,43 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18648129.svg)](https://doi.org/10.5281/zenodo.18648129)
+
 # ThanimamPro
 
-[![CI](https://github.com/your-org/thanimampro/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/thanimampro/actions/workflows/ci.yml)
+**ThanimamPro** is an integrated data-driven synthesis–structure–property platform designed to support materials research and development. The software provides a unified workflow linking experimental synthesis parameters, structural descriptors, and predicted functional properties within an open and reproducible computational framework.
 
-Synthesis-Structure-Property Integration Platform for materials R&D.
+---
 
-ThanimamPro links experimental synthesis settings, structure descriptors, and predicted functional properties in one open workflow. It includes:
+## Statement of Need
 
-1. Synthesis parameter entry
-2. CIF/XRD structure analysis (lightweight parser + derived descriptors)
-3. Property prediction engine (baseline surrogate model)
-4. Synthesis-property heatmap mapper
-5. Inverse design assistant
-6. Literature dataset search panel
+In materials research, synthesis parameters, crystal structure, and functional properties are often reported separately, making systematic exploration and inverse design challenging. ThanimamPro addresses this gap by providing a structured computational interface that integrates synthesis input, lightweight structural parsing, surrogate property prediction, and interactive parameter mapping within a single research workflow.
 
-## Run locally
+---
 
-```powershell
+## Core Functionality
+
+ThanimamPro includes:
+
+- **Synthesis Parameter Entry Module**  
+  Structured input of thermal, chemical, and processing variables.
+
+- **Structure Analysis Module**  
+  CIF/XRD parsing and derivation of structural descriptors.
+
+- **Property Prediction Engine**  
+  Baseline surrogate modelling for functional property estimation.
+
+- **Synthesis–Property Mapper**  
+  Interactive heatmaps and sensitivity exploration.
+
+- **Inverse Design Assistant**  
+  Property-targeted parameter suggestion.
+
+- **Literature Dataset Interface**  
+  Searchable seed dataset for exploratory modelling.
+
+---
+
+## Installation
+
+### Create environment
+```bash
 python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-streamlit run streamlit_app.py
-```
-
-## Streamlit public deployment
-
-1. Push this repository to GitHub.
-2. Open Streamlit Community Cloud and create a new app from the repo.
-3. Set main file path to `streamlit_app.py`.
-4. Deploy.
-
-## Project layout
-
-- `streamlit_app.py`: user interface entrypoint
-- `thanimampro_api/`: reusable core logic
-- `data/literature_seed.csv`: starter literature dataset
-- `paper/paper.md`: JOSS manuscript draft
-- `paper/paper.bib`: bibliography for JOSS paper
-
-## JOSS readiness
-
-This repository includes initial JOSS assets:
-
-- `paper/paper.md`
-- `paper/paper.bib`
-- `LICENSE`
-- `CITATION.cff`
-
-Before submission, update author metadata, archive a tagged release on Zenodo, and replace placeholder citations/DOIs where needed.
