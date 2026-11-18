@@ -62,6 +62,10 @@ pip install -e .
 ```bash
 streamlit run streamlit_app.py
 ```
+The interface has a quick-start preset picker, live results with a light-absorption window, a
+sensitivity (tornado) chart, selectable-property heatmap / 3D maps with a current-conditions marker,
+inverse design with one-click "apply to sidebar", saved-scenario comparison, and Markdown / JSON report
+export.
 Sample structure files are provided in `samples/` (CIF, XRD, XY and text formats).
 The Literature Database tab reads `data/literature_seed.csv` (columns: `material_system`,
 `method`, `temperature_c`, `pH`, `band_gap_ev`, `surface_area_m2_g`, `doi`); the tab shows an

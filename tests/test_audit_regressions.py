@@ -124,3 +124,17 @@ def test_williamson_hall_recovers_size_and_strain():
     assert f.size_method == "Williamson-Hall" and f.phase == "anatase"
     assert f.crystallite_size_nm == pytest.approx(size, rel=0.05)
     assert f.microstrain_pct == pytest.approx(0.2, rel=0.1)
+
+
+def test_property_map_and_sensitivity():
+    from thanimampro_api.mapper import build_property_map
+    from thanimampro_api.sensitivity import one_at_a_time
+    df = build_property_map(_base(), None, 400, 800, 3, 9, points=4, prop="specific_surface_area_m2_g")
+    assert list(df.columns) == ["temperature_c", "pH", "value"] and len(df) == 16
+    with pytest.raises(ValueError):
+        build_property_map(_base(), None, 400, 800, 3, 9, prop="nope")
+    rows = one_at_a_time(_base(), None, "band_gap_ev")
+    assert rows[0]["swing"] >= rows[-1]["swing"]
+    assert next(r for r in rows if r["variable"] == "pressure_bar")["swing"] == 0.0  # band gap ignores pressure
+    t = next(r for r in rows if r["variable"] == "temperature_c")
+    assert t["delta_high"] < 0 < t["delta_low"]  # hotter -> smaller band gap in the surrogate
