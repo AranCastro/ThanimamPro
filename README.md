@@ -41,3 +41,63 @@ ThanimamPro includes:
 ### Create environment
 ```bash
 python -m venv .venv
+
+# Linux / macOS
+source .venv/bin/activate
+# Windows (PowerShell)
+.venv\Scripts\Activate.ps1
+```
+
+### Install dependencies
+```bash
+pip install -r requirements.txt
+pip install -e .
+```
+
+---
+
+## Usage
+
+### Web application
+```bash
+streamlit run streamlit_app.py
+```
+Sample structure files are provided in `samples/` (CIF, XRD, XY and text formats).
+The Literature Database tab reads `data/literature_seed.csv` (columns: `material_system`,
+`method`, `temperature_c`, `pH`, `band_gap_ev`, `surface_area_m2_g`, `doi`); the tab shows an
+empty table until that file is supplied.
+
+### Python API
+```python
+from thanimampro_api.schemas import SynthesisInput
+from thanimampro_api.predict import predict_properties
+
+synthesis = SynthesisInput(
+    temperature_c=650.0, heating_rate_c_min=5.0, annealing_time_h=2.0, atmosphere="air",
+    precursor_ratio=1.0, pH=7.0, solvent_type="water", concentration_m=0.5,
+    pressure_bar=1.0, milling_time_h=2.0, calcination_time_h=2.0, method="sol-gel",
+)
+print(predict_properties(synthesis).to_dict())
+```
+
+### Tests
+```bash
+pip install -e ".[dev]"
+pytest -q
+```
+
+---
+
+## Limitations
+
+- The property predictor is an illustrative baseline surrogate with hand-set coefficients; it is not
+  fitted to experimental data. Only temperature, pH, pressure and the structural descriptors affect
+  its output.
+- Crystallite size, microstrain and defect index from uploaded files are peak-count and keyword
+  heuristics, not Scherrer or Williamson-Hall analyses.
+- The `ugp` subpackage (Unified Geothermobarometry Platform, command `ugp`) is a separate scaffold whose
+  calculator engines are placeholders and return fixed demonstration values flagged `not-implemented`.
+
+## Licence
+
+MIT; see `LICENSE`.

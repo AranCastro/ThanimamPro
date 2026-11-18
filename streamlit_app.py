@@ -66,9 +66,9 @@ def _render_structure_metrics(features: StructureFeatures) -> None:
     left, right = st.columns(2)
     with left:
         st.metric("Phase", features.phase)
-        st.metric("Lattice a", f"{features.lattice_a:.4f} A")
-        st.metric("Lattice b", f"{features.lattice_b:.4f} A")
-        st.metric("Lattice c", f"{features.lattice_c:.4f} A")
+        st.metric("Lattice a", f"{features.lattice_a:.4f} Å")
+        st.metric("Lattice b", f"{features.lattice_b:.4f} Å")
+        st.metric("Lattice c", f"{features.lattice_c:.4f} Å")
     with right:
         st.metric("Crystallite size", f"{features.crystallite_size_nm:.2f} nm")
         st.metric("Microstrain", f"{features.microstrain_pct:.3f} %")
@@ -104,8 +104,8 @@ def main() -> None:
         with st.form("synthesis_input"):
             col1, col2, col3 = st.columns(3)
             with col1:
-                st.number_input("Temperature (C)", 100.0, 1500.0, key="temperature_c")
-                st.number_input("Heating rate (C/min)", 0.1, 100.0, key="heating_rate_c_min")
+                st.number_input("Temperature (°C)", 100.0, 1500.0, key="temperature_c")
+                st.number_input("Heating rate (°C/min)", 0.1, 100.0, key="heating_rate_c_min")
                 st.number_input("Annealing time (h)", 0.1, 48.0, key="annealing_time_h")
                 st.text_input("Atmosphere", key="atmosphere")
             with col2:
@@ -132,14 +132,21 @@ def main() -> None:
             st.text_input("Material system", key="material_system")
             submitted = st.form_submit_button("Save Conditions")
         if submitted:
-            st.success("Synthesis conditions saved.")
+            try:
+                _synthesis_from_state()
+            except ValueError as exc:
+                st.error(f"Invalid synthesis conditions: {exc}")
+            else:
+                st.success("Synthesis conditions saved.")
 
     with tabs[1]:
         st.subheader("CIF/XRD Upload")
         uploaded = st.file_uploader("Upload CIF/XRD file", type=["cif", "xrd", "xy", "txt"])
         if uploaded is not None and st.button("Analyze Structure", type="primary"):
-            features = analyze_structure_file(uploaded.name, uploaded.getvalue())
-            st.session_state["structure"] = features
+            try:
+                st.session_state["structure"] = analyze_structure_file(uploaded.name, uploaded.getvalue())
+            except ValueError as exc:
+                st.error(f"Could not analyse file: {exc}")
         if st.session_state["structure"] is not None:
             _render_structure_metrics(st.session_state["structure"])
         else:
@@ -147,6 +154,10 @@ def main() -> None:
 
     with tabs[2]:
         st.subheader("Predicted Functional Properties")
+        st.caption(
+            "Illustrative baseline surrogate, not fitted to experimental data. "
+            "Only temperature, pH, pressure and structural descriptors affect the output."
+        )
         synthesis = _synthesis_from_state()
         prediction = predict_properties(synthesis, st.session_state["structure"])
         pred_df = pd.DataFrame(
@@ -154,15 +165,16 @@ def main() -> None:
         )
         c1, c2 = st.columns([2, 3])
         with c1:
-            st.dataframe(pred_df, use_container_width=True, hide_index=True)
+            st.dataframe(pred_df, hide_index=True)
         with c2:
-            fig = px.bar(pred_df, x="property", y="value", title="Predicted Property Profile")
+            fig = px.bar(pred_df, x="property", y="value", title="Predicted Property Profile (log scale)")
+            fig.update_yaxes(type="log")
             fig.update_layout(xaxis_tickangle=-45)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig)
 
     with tabs[3]:
         st.subheader("Band Gap Sensitivity: Temperature vs pH")
-        temp_range = st.slider("Temperature range (C)", 200, 1200, (450, 900), step=10)
+        temp_range = st.slider("Temperature range (°C)", 200, 1200, (450, 900), step=10)
         ph_range = st.slider("pH range", 0.0, 14.0, (2.0, 12.0), step=0.2)
         points = st.slider("Grid density", 10, 50, 25)
         if st.button("Generate Heatmap"):
@@ -177,14 +189,17 @@ def main() -> None:
                 points=points,
             )
             pivot = map_df.pivot(index="pH", columns="temperature_c", values="band_gap_ev")
+            pivot.index = pivot.index.round(2)
+            pivot.columns = pivot.columns.round(1)
             fig = px.imshow(
                 pivot,
-                labels={"x": "Temperature (C)", "y": "pH", "color": "Band gap (eV)"},
+                origin="lower",
+                labels={"x": "Temperature (°C)", "y": "pH", "color": "Band gap (eV)"},
                 aspect="auto",
                 title="Iso-performance map",
             )
-            st.plotly_chart(fig, use_container_width=True)
-            st.dataframe(map_df.head(20), use_container_width=True, hide_index=True)
+            st.plotly_chart(fig)
+            st.dataframe(map_df.head(20), hide_index=True)
 
     with tabs[4]:
         st.subheader("Target-Driven Inverse Design")
@@ -208,11 +223,13 @@ def main() -> None:
                 structure=st.session_state["structure"],
                 top_k=5,
             )
-            st.dataframe(pd.DataFrame(suggestions), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(suggestions), hide_index=True)
 
     with tabs[5]:
         st.subheader("Literature Records (Seed Dataset)")
         frame = load_literature_data(SEED_DATA_PATH)
+        if not SEED_DATA_PATH.exists():
+            st.info(f"No seed dataset found at {SEED_DATA_PATH.relative_to(ROOT)}; the table below is empty.")
         material_filter, method_filter = st.columns(2)
         with material_filter:
             mat = st.text_input("Filter by material system")
@@ -224,14 +241,17 @@ def main() -> None:
         with bg_max:
             max_bg = st.number_input("Max band gap filter", 0.0, 6.0, 6.0, step=0.1)
 
+        if min_bg > max_bg:
+            st.warning("Min band gap exceeds max band gap; no records can match.")
         filtered = search_literature(
             frame=frame,
             material_system=mat,
             method=meth,
-            min_band_gap=float(min_bg),
-            max_band_gap=float(max_bg),
+            # Leave a bound unset at its default so records with missing band gaps are kept.
+            min_band_gap=float(min_bg) if min_bg > 0.0 else None,
+            max_band_gap=float(max_bg) if max_bg < 6.0 else None,
         )
-        st.dataframe(filtered, use_container_width=True, hide_index=True)
+        st.dataframe(filtered, hide_index=True)
 
 
 if __name__ == "__main__":

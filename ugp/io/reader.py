@@ -6,17 +6,23 @@ from ugp.models import MineralAnalysis, SampleMetadata, ThermoDataset
 
 
 def _read_json(path: Path) -> ThermoDataset:
-    payload = json.loads(path.read_text())
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{path}: invalid JSON ({exc})") from exc
     analyses = []
-    for entry in payload.get("analyses", []):
-        meta = SampleMetadata(**entry["metadata"])
-        analyses.append(
-            MineralAnalysis(
-                mineral=entry["mineral"],
-                oxides_wt_pct=entry["oxides_wt_pct"],
-                metadata=meta,
+    for i, entry in enumerate(payload.get("analyses", [])):
+        try:
+            meta = SampleMetadata(**entry["metadata"])
+            analyses.append(
+                MineralAnalysis(
+                    mineral=entry["mineral"],
+                    oxides_wt_pct=entry["oxides_wt_pct"],
+                    metadata=meta,
+                )
             )
-        )
+        except (KeyError, TypeError) as exc:
+            raise ValueError(f"{path}: analysis #{i} is malformed ({exc!r})") from exc
     return ThermoDataset(analyses=analyses, reference_frame=payload.get("reference", "wt%"))
 
 

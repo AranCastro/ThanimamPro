@@ -19,5 +19,7 @@ def write_json(result: PTEnsemble, path: str) -> None:
             for p in result.results
         ],
     }
-    Path(path).write_text(json.dumps(payload, indent=2))
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 

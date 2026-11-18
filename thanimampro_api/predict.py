@@ -16,6 +16,13 @@ def predict_properties(
     """
     Baseline surrogate model for Synthesis -> Structure -> Property behavior.
     Replace with trained regressors once literature-scale datasets are loaded.
+
+    Only temperature, pH, pressure and the structural descriptors (defect index,
+    crystallite size) enter the surrogate. The remaining SynthesisInput fields
+    (heating rate, annealing/calcination/milling time, atmosphere, precursor
+    ratio, solvent, concentration, method) are accepted for schema completeness
+    but do not yet influence the output. The coefficients are illustrative, not
+    fitted to experimental data.
     """
     s = synthesis
     defect_factor = structure.defect_index if structure else 0.25
