@@ -67,9 +67,10 @@ sensitivity (tornado) chart, selectable-property heatmap / 3D maps with a curren
 inverse design with one-click "apply to sidebar", saved-scenario comparison, and Markdown / JSON report
 export.
 Sample structure files are provided in `samples/` (CIF, XRD, XY and text formats).
-The Literature Database tab reads `data/literature_seed.csv` (columns: `material_system`,
-`method`, `temperature_c`, `pH`, `band_gap_ev`, `surface_area_m2_g`, `doi`); the tab shows an
-empty table until that file is supplied.
+The Literature tab reads `data/literature_seed.csv` (v1: 76 experimental TiO2 / doped-TiO2 rows from 15 open-access
+papers; provenance and open checks in `docs/literature_search_log_v1.md`; benchmark the surrogate against it with
+`python scripts/benchmark_surrogate.py`). Schema: (columns: `material_system`,
+`method`, `temperature_c`, `pH`, `band_gap_ev`, `surface_area_m2_g`, `doi`).
 
 ### Python API
 ```python

@@ -138,3 +138,14 @@ def test_property_map_and_sensitivity():
     assert next(r for r in rows if r["variable"] == "pressure_bar")["swing"] == 0.0  # band gap ignores pressure
     t = next(r for r in rows if r["variable"] == "temperature_c")
     assert t["delta_high"] < 0 < t["delta_low"]  # hotter -> smaller band gap in the surrogate
+
+
+def test_shipped_literature_seed_is_valid():
+    import importlib.util
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    spec = importlib.util.spec_from_file_location("validate_lit", root / "scripts" / "validate_literature_csv.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    errors, _ = mod.validate(root / "data" / "literature_seed.csv")
+    assert errors == []
