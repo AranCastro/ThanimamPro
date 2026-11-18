@@ -43,7 +43,7 @@ def report(frame: pd.DataFrame, column: str, attr: str) -> None:
     err = pred - obs
     r, p = _pearson_perm(pred, obs)
     print(f"{column}: n={len(sub)} papers={sub.doi.nunique()}  MAE={np.abs(err).mean():.3g}  RMSE={sqrt((err**2).mean()):.3g}  "
-          f"bias={err.mean():+.3g}  Pearson r={r:+.2f} (p={p:.2g})  constant-mean MAE={np.abs(obs - obs.mean()).mean():.3g}")
+          f"bias={err.mean():+.3g}  Pearson r={r:+.2f} (p{'<1e-4' if p == 0 else f'={p:.2g}'})  constant-mean MAE={np.abs(obs - obs.mean()).mean():.3g}")
 
 
 if __name__ == "__main__":
