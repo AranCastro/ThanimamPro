@@ -14,6 +14,7 @@ import pandas as pd
 REQUIRED = ["material_system", "method", "temperature_c", "pH", "band_gap_ev", "surface_area_m2_g", "doi"]
 RANGES = {"temperature_c": (0, 3000), "pH": (0, 14), "band_gap_ev": (0, 12), "surface_area_m2_g": (0, 3000)}
 METHODS = {"sol-gel", "hydrothermal", "co-precipitation", "solid-state", "combustion", "other"}
+TEMPERATURE_TYPES = {"calcination", "hydrothermal", "combustion"}
 DOI = re.compile(r"^10\.\d{4,9}/\S+$")
 
 
@@ -39,6 +40,10 @@ def validate(path: Path) -> tuple[list[str], list[str]]:
             warnings.append(f"row {i + 2}: method {m!r} not in {sorted(METHODS)} (use 'other' if none fits)")
     for i in frame.index[frame["material_system"].isna()]:
         errors.append(f"row {i + 2}: material_system is empty")
+    if "temperature_type" in frame.columns:  # optional column; if present it must be filled and valid
+        for i, t in frame["temperature_type"].items():
+            if str(t).strip().lower() not in TEMPERATURE_TYPES:
+                errors.append(f"row {i + 2}: temperature_type {t!r} not in {sorted(TEMPERATURE_TYPES)}")
     dup = frame.duplicated(keep="first")
     for i in frame.index[dup]:
         warnings.append(f"row {i + 2}: exact duplicate of an earlier row")

@@ -22,7 +22,7 @@ One UTF-8 CSV, `data/literature_seed.csv`, one row per reported sample.
 
 Template: `data/literature_template.csv` (header only).
 
-Optional extra columns are welcome (the app ignores them): `phase`, `crystallite_size_nm`, `atmosphere`,
+Optional extra columns are welcome (the app ignores them): `temperature_type` (calcination | hydrothermal | combustion; validated when present), `phase`, `crystallite_size_nm`, `atmosphere`,
 `calcination_time_h`, `measurement_method_band_gap` (Tauc direct/indirect, DRS), `notes`. Recording how
 the band gap was obtained matters, because Tauc direct and indirect values for the same sample differ.
 

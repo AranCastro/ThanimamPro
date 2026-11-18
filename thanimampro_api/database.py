@@ -13,6 +13,7 @@ COLUMNS = [
     "surface_area_m2_g",
     "doi",
 ]
+OPTIONAL_COLUMNS = ["temperature_type"]  # calcination | hydrothermal | combustion
 
 
 def load_literature_data(csv_path: str | Path) -> pd.DataFrame:
