@@ -71,6 +71,8 @@ class StructureFeatures:
     microstrain_pct: float
     defect_index: float
     source: str
+    size_method: str = "heuristic"  # "Williamson-Hall", "Scherrer" or "heuristic"
+    n_peaks: int = 0
 
     def __post_init__(self) -> None:
         for name in ("lattice_a", "lattice_b", "lattice_c", "crystallite_size_nm",

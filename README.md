@@ -93,8 +93,11 @@ pytest -q
 - The property predictor is an illustrative baseline surrogate with hand-set coefficients; it is not
   fitted to experimental data. Only temperature, pH, pressure and the structural descriptors affect
   its output.
-- Crystallite size, microstrain and defect index from uploaded files are peak-count and keyword
-  heuristics, not Scherrer or Williamson-Hall analyses.
+- For continuous XRD scans (≥ 50 points, Cu Kα1, λ = 1.5406 Å) crystallite size and microstrain come from
+  Williamson–Hall (≥ 3 peaks) or Scherrer (K = 0.9) fits without instrumental-broadening correction, so sizes
+  are lower bounds. For peak lists and CIF files they are peak-count and keyword heuristics, and the
+  interface labels which method was used. Phase identification matches peaks against a small reference table
+  (anatase, rutile, cubic perovskite, spinel).
 - The `ugp` subpackage (Unified Geothermobarometry Platform, command `ugp`) is a separate scaffold whose
   calculator engines are placeholders and return fixed demonstration values flagged `not-implemented`.
 

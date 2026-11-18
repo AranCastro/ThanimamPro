@@ -66,7 +66,7 @@ def test_xrd_without_cell_is_flagged_and_peaks_counted():
 def test_continuous_scan_peak_detection():
     rows = "\n".join(f"{20 + 0.05 * i:.2f} {100 if i in (50, 150) else 1}" for i in range(300))
     f = analyze_structure_file("scan.xy", rows.encode())
-    assert f.crystallite_size_nm == pytest.approx(60.0 - 0.9 * 2)
+    assert f.n_peaks == 2
 
 
 def test_literature_search_is_literal_and_handles_missing(tmp_path):
@@ -109,3 +109,18 @@ def test_cli_errors_and_output(tmp_path, capsys):
     out = tmp_path / "sub" / "o.json"
     ugp_main(["run", str(data), "-e", "thermocalc", "-o", str(out)])
     assert json.loads(out.read_text())["summary"]["status"] == "not-implemented"
+
+
+def test_williamson_hall_recovers_size_and_strain():
+    import numpy as np
+    lam, size, eps = 0.15406, 20.0, 0.002
+    x = np.arange(20, 70, 0.02)
+    y = np.full_like(x, 50.0)
+    for c, i in [(25.28, 1000), (37.80, 250), (48.05, 350), (53.89, 200), (55.06, 190), (62.69, 150)]:
+        th = np.radians(c / 2)
+        beta = 0.9 * lam / (size * np.cos(th)) + 4 * eps * np.sin(th) / np.cos(th)
+        y += i * np.exp(-0.5 * ((x - c) / (np.degrees(beta) / 2.355)) ** 2)
+    f = analyze_structure_file("a.xy", "\n".join(f"{a:.2f} {b:.1f}" for a, b in zip(x, y)).encode())
+    assert f.size_method == "Williamson-Hall" and f.phase == "anatase"
+    assert f.crystallite_size_nm == pytest.approx(size, rel=0.05)
+    assert f.microstrain_pct == pytest.approx(0.2, rel=0.1)
