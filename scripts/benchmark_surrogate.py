@@ -1,4 +1,8 @@
-"""Compare the baseline surrogate with the experimental literature table.
+"""Compare the surrogate with the experimental literature table (in-sample check).
+
+The calibrated coefficients in thanimampro_api.predict were fitted to this table, so the figures
+below describe goodness of fit, not predictive skill. Held-out (leave-one-paper-out) errors are
+reported by scripts/fit_surrogate.py.
 
 Usage: python scripts/benchmark_surrogate.py [data/literature_seed.csv]
 
@@ -25,6 +29,7 @@ def _predict(row: pd.Series):
         temperature_c=float(row.temperature_c), heating_rate_c_min=5.0, annealing_time_h=2.0, atmosphere="air",
         precursor_ratio=1.0, pH=float(row.pH) if pd.notna(row.pH) else 7.0, solvent_type="water",
         concentration_m=0.5, pressure_bar=1.0, milling_time_h=0.0, calcination_time_h=2.0, method="other",
+        material_system=str(row.material_system),
     )
     return predict_properties(s, None)
 
@@ -36,8 +41,10 @@ def _pearson_perm(x: np.ndarray, y: np.ndarray, n_perm: int = 10_000, seed: int 
     return r, float((np.abs(null) >= abs(r)).mean())
 
 
-def report(frame: pd.DataFrame, column: str, attr: str) -> None:
+def report(frame: pd.DataFrame, column: str, attr: str, calcination_only: bool = False) -> None:
     sub = frame.dropna(subset=[column, "temperature_c"])
+    if calcination_only:  # the surface-area relation is calibrated on calcination temperatures only
+        sub = sub[sub["temperature_type"] == "calcination"]
     obs = sub[column].to_numpy(float)
     pred = np.array([getattr(_predict(r), attr) for r in sub.itertuples()])
     err = pred - obs
@@ -49,4 +56,4 @@ def report(frame: pd.DataFrame, column: str, attr: str) -> None:
 if __name__ == "__main__":
     data = load_literature_data(sys.argv[1] if len(sys.argv) > 1 else "data/literature_seed.csv")
     report(data, "band_gap_ev", "band_gap_ev")
-    report(data, "surface_area_m2_g", "specific_surface_area_m2_g")
+    report(data, "surface_area_m2_g", "specific_surface_area_m2_g", calcination_only=True)

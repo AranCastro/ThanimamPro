@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "thanimampro"
-version = "0.1.1"
+version = "0.2.0.dev0"
 description = "Synthesis-Structure-Property Integration Platform"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,14 +13,14 @@ authors = [
   { name = "Aran Castro" }
 ]
 dependencies = [
-  "streamlit>=1.50",
-  "pandas>=2.2",
-  "numpy>=2.1",
-  "plotly>=5.24"
+  "streamlit>=1.50,<2",
+  "pandas>=2.2,<4",
+  "numpy>=2.1,<3",
+  "plotly>=5.24,<8"
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.3"]
+dev = ["pytest>=8.3", "ruff>=0.6"]
 
 [project.scripts]
 ugp = "ugp.cli:main"
@@ -30,3 +30,14 @@ include = ["thanimampro_api*", "ugp*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 140
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B"]
+ignore = ["E501", "B905"]
+
+[tool.ruff.lint.per-file-ignores]
+"streamlit_app.py" = ["E402"]  # imports follow the sys.path set-up

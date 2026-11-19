@@ -25,6 +25,8 @@ def one_at_a_time(
     if prop not in PredictedProperties.__dataclass_fields__:
         raise ValueError(f"unknown property {prop!r}")
     base = getattr(predict_properties(synthesis, structure), prop)
+    if base is None:
+        raise ValueError(f"{prop} is not reported for material system {synthesis.material_system!r}")
     rows = []
     for var, (step, lo, hi) in _STEPS.items():
         value = getattr(synthesis, var)

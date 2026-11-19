@@ -32,7 +32,7 @@ def build_property_map(
     """Predicted property over a temperature (degC) x pH grid; columns temperature_c, pH, value."""
     if points < 1:
         raise ValueError("points must be at least 1")
-    if not hasattr(PredictedProperties, "__dataclass_fields__") or prop not in PredictedProperties.__dataclass_fields__:
+    if prop not in PredictedProperties.__dataclass_fields__:
         raise ValueError(f"unknown property {prop!r}")
     temps = _axis(temp_min, temp_max, points, "temperature")
     phs = _axis(ph_min, ph_max, points, "pH")
@@ -42,7 +42,10 @@ def build_property_map(
         for ph in phs:
             trial = replace(baseline, temperature_c=temp, pH=ph)
             pred = predict_properties(trial, structure)
-            rows.append({"temperature_c": temp, "pH": ph, "value": getattr(pred, prop)})
+            value = getattr(pred, prop)
+            if value is None:
+                raise ValueError(f"{prop} is not reported for material system {baseline.material_system!r}")
+            rows.append({"temperature_c": temp, "pH": ph, "value": value})
     return pd.DataFrame(rows)
 
 

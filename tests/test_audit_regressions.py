@@ -33,10 +33,12 @@ def test_synthesis_input_validation(bad):
 
 
 def test_inverse_has_no_duplicate_candidates():
-    desired = DesiredPropertyTargets(2.5, 50.0, 20.0)
+    desired = DesiredPropertyTargets(3.15, 50.0, 20.0)
     out = suggest_synthesis_conditions(_base(), desired, top_k=5)
-    keys = {(r["temperature_c"], r["pH"], r["pred_band_gap_ev"], r["estimated_particle_size_nm"]) for r in out}
-    assert len(keys) == 5
+    assert len({r["temperature_c"] for r in out}) == 5
+    assert out[0]["target_reachable"] and out[0]["meets_all_targets"]
+    conflicting = suggest_synthesis_conditions(_base(), DesiredPropertyTargets(2.85, 150.0, 5.0), top_k=3)
+    assert conflicting[0]["target_reachable"] and not any(r["meets_all_targets"] for r in conflicting)
     with pytest.raises(ValueError):
         suggest_synthesis_conditions(_base(), desired, top_k=0)
 
@@ -50,17 +52,20 @@ def test_mapper_degenerate_range_and_validation():
         build_bandgap_map(_base(), None, 800, 400, 3, 9)
 
 
-def test_cif_lattice_values_are_not_counted_as_peaks():
+def test_cif_gives_lattice_but_no_size():
     cif = b"data_x\n_cell_length_a 3.7842(5)\n_cell_length_b 3.7842\n_cell_length_c 9.5146\n"
     f = analyze_structure_file("x.cif", cif)
-    assert (f.lattice_a, f.lattice_c) == (3.7842, 9.5146)
-    assert f.crystallite_size_nm == 60.0 and f.source == "CIF"
+    assert (f.lattice_a, f.lattice_b, f.lattice_c) == (3.7842, 3.7842, 9.5146)
+    assert f.crystallite_size_nm is None and f.microstrain_pct is None and f.defect_index is None
+    assert f.size_method == "none" and f.source == "CIF"
 
 
-def test_xrd_without_cell_is_flagged_and_peaks_counted():
-    f = analyze_structure_file("p.xy", b"# c\n27.44 1000\n36.08 612\n39.19 455\n")
-    assert "default" in f.source
-    assert f.crystallite_size_nm == pytest.approx(60.0 - 0.9 * 3)
+def test_peak_list_reports_no_invented_descriptors():
+    f = analyze_structure_file("p.xy", b"# c\n27.44 1000\n36.08 612\n41.24 322\n54.32 262\n")
+    assert f.phase == "rutile" and f.n_peaks == 4
+    assert f.lattice_a is None and f.lattice_c is None  # no anatase defaults
+    assert f.crystallite_size_nm is None and f.microstrain_pct is None
+    assert "lattice parameters are not available" in f.notes
 
 
 def test_continuous_scan_peak_detection():

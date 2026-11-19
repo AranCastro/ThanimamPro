@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from math import isfinite
-from typing import Dict, Literal, get_args
+from typing import Dict, Literal, Optional, get_args
 
 SynthesisMethod = Literal[
     "sol-gel",
@@ -63,32 +63,52 @@ class SynthesisInput:
 
 @dataclass
 class StructureFeatures:
+    """
+    Descriptors read or measured from a CIF / XRD file.
+
+    A field is ``None`` when the file does not determine it: lattice parameters need CIF
+    ``_cell_length_*`` tags; crystallite size needs a continuous scan with resolved peaks;
+    microstrain needs a Williamson-Hall fit. ``defect_index`` (0 to 1) cannot be derived from a
+    diffraction pattern and is only set when the user supplies an estimate.
+    """
+
     phase: str
-    lattice_a: float
-    lattice_b: float
-    lattice_c: float
-    crystallite_size_nm: float
-    microstrain_pct: float
-    defect_index: float
-    source: str
-    size_method: str = "heuristic"  # "Williamson-Hall", "Scherrer" or "heuristic"
-    n_peaks: int = 0
+    lattice_a: Optional[float] = None
+    lattice_b: Optional[float] = None
+    lattice_c: Optional[float] = None
+    crystallite_size_nm: Optional[float] = None
+    microstrain_pct: Optional[float] = None
+    defect_index: Optional[float] = None
+    source: str = ""
+    size_method: str = "none"  # "Williamson-Hall", "Scherrer" or "none"
+    n_peaks: int = 0  # peaks detected
+    n_peaks_used: int = 0  # resolved peaks used for the size / strain estimate
+    notes: str = ""
 
     def __post_init__(self) -> None:
         for name in ("lattice_a", "lattice_b", "lattice_c", "crystallite_size_nm",
                      "microstrain_pct", "defect_index"):
-            _require_finite(name, getattr(self, name))
-        if self.crystallite_size_nm <= 0.0:
-            raise ValueError("crystallite_size_nm must be positive")
-        if not 0.0 <= self.defect_index <= 1.0:
+            if getattr(self, name) is not None:
+                _require_finite(name, getattr(self, name))
+        for name in ("lattice_a", "lattice_b", "lattice_c", "crystallite_size_nm"):
+            if getattr(self, name) is not None and getattr(self, name) <= 0.0:
+                raise ValueError(f"{name} must be positive")
+        if self.defect_index is not None and not 0.0 <= self.defect_index <= 1.0:
             raise ValueError("defect_index must lie between 0 and 1")
 
-    def to_dict(self) -> Dict[str, float | str]:
+    def to_dict(self) -> Dict[str, float | str | None]:
         return asdict(self)
 
 
 @dataclass
 class PredictedProperties:
+    """
+    ``band_gap_ev``, ``absorption_edge_nm`` and ``specific_surface_area_m2_g`` are calibrated
+    against the literature table (see ``thanimampro_api.predict``). The remaining fields are
+    illustrative and unvalidated. The two magnetic fields are ``None`` unless the material
+    system contains a magnetic cation.
+    """
+
     band_gap_ev: float
     conductivity_s_cm: float
     absorption_edge_nm: float
@@ -97,15 +117,28 @@ class PredictedProperties:
     active_site_density_mm2_g: float
     capacitance_f_g: float
     ion_diffusivity_cm2_s: float
-    curie_temperature_k: float
-    saturation_magnetization_emu_g: float
+    curie_temperature_k: Optional[float] = None
+    saturation_magnetization_emu_g: Optional[float] = None
 
-    def to_dict(self) -> Dict[str, float]:
+    def to_dict(self) -> Dict[str, Optional[float]]:
         return asdict(self)
+
+
+CALIBRATED_PROPERTIES = ("band_gap_ev", "absorption_edge_nm", "specific_surface_area_m2_g")
 
 
 @dataclass
 class DesiredPropertyTargets:
     target_band_gap_ev: float
     min_surface_area_m2_g: float
-    max_particle_size_nm: float
+    max_particle_size_nm: float  # compared with the estimated crystallite size
+
+    def __post_init__(self) -> None:
+        for name in ("target_band_gap_ev", "min_surface_area_m2_g", "max_particle_size_nm"):
+            _require_finite(name, getattr(self, name))
+        if self.target_band_gap_ev <= 0.0:
+            raise ValueError("target_band_gap_ev must be positive")
+        if self.min_surface_area_m2_g < 0.0:
+            raise ValueError("min_surface_area_m2_g must be non-negative")
+        if self.max_particle_size_nm <= 0.0:
+            raise ValueError("max_particle_size_nm must be positive")

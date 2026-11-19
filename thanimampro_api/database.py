@@ -13,7 +13,10 @@ COLUMNS = [
     "surface_area_m2_g",
     "doi",
 ]
-OPTIONAL_COLUMNS = ["temperature_type"]  # calcination | hydrothermal | combustion
+OPTIONAL_COLUMNS = [
+    "temperature_type",  # calcination | hydrothermal | combustion
+    "band_gap_transition",  # direct | indirect | other (form of the Tauc analysis)
+]
 
 
 def load_literature_data(csv_path: str | Path) -> pd.DataFrame:

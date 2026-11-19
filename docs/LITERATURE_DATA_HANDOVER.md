@@ -3,8 +3,8 @@
 ## 1. Purpose
 ThanimamPro needs a curated table of experimental synthesis–property records. It serves two uses:
 (i) the Literature tab (search and filter), and (ii) training and validating a data-driven
-replacement for the current baseline surrogate, which uses hand-set coefficients and is not fitted
-to measurements. The model is only as credible as this table, so provenance and consistency matter
+replacement for the surrogate. Since v6 of the table, band gap and surface area are fitted to it
+(`scripts/fit_surrogate.py`); the remaining properties still use hand-set expressions. The model is only as credible as this table, so provenance and consistency matter
 more than volume.
 
 ## 2. Deliverable
@@ -23,7 +23,7 @@ One UTF-8 CSV, `data/literature_seed.csv`, one row per reported sample.
 Template: `data/literature_template.csv` (header only).
 
 Optional extra columns are welcome (the app ignores them): `temperature_type` (calcination | hydrothermal | combustion; validated when present), `phase`, `crystallite_size_nm`, `atmosphere`,
-`calcination_time_h`, `measurement_method_band_gap` (Tauc direct/indirect, DRS), `notes`. Recording how
+`calcination_time_h`, `measurement_method_band_gap` (as the authors state it), `band_gap_transition` (direct | indirect | other; required wherever a band gap is given, validated when the column is present), `notes`. Recording how
 the band gap was obtained matters, because Tauc direct and indirect values for the same sample differ.
 
 ## 3. Where to obtain records

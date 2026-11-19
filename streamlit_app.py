@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import html
 import json
 import sys
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
@@ -15,11 +17,12 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from thanimampro_api.database import load_literature_data, search_literature
-from thanimampro_api.inverse import suggest_synthesis_conditions
+from thanimampro_api.inverse import reachable_band_gap_range, suggest_synthesis_conditions
 from thanimampro_api.mapper import build_property_map
 from thanimampro_api.sensitivity import one_at_a_time
-from thanimampro_api.predict import predict_properties
+from thanimampro_api.predict import predict_properties, scope_warnings
 from thanimampro_api.schemas import (
+    CALIBRATED_PROPERTIES,
     SYNTHESIS_METHODS,
     DesiredPropertyTargets,
     StructureFeatures,
@@ -67,12 +70,13 @@ PROPERTY_LABELS = {
     "saturation_magnetization_emu_g": ("Saturation magnetisation", "emu/g"),
 }
 
+# Starting points inside the calibrated domain (TiO2 and doped TiO2). They are typical of the
+# literature table, not recipes taken from a specific paper.
 PRESETS = {
-    "TiO2 · sol-gel": dict(method="sol-gel", material_system="TiO2", temperature_c=450.0, pH=3.0, calcination_time_h=2.0, pressure_bar=1.0, milling_time_h=0.0),
-    "TiO2 · hydrothermal": dict(method="hydrothermal", material_system="TiO2", temperature_c=180.0, pH=5.0, calcination_time_h=2.0, pressure_bar=10.0, milling_time_h=0.0),
-    "ZnO · co-precipitation": dict(method="co-precipitation", material_system="ZnO", temperature_c=400.0, pH=10.0, calcination_time_h=2.0, pressure_bar=1.0, milling_time_h=0.0),
-    "SrTiO3 · solid-state": dict(method="solid-state", material_system="SrTiO3", temperature_c=1100.0, pH=7.0, calcination_time_h=6.0, pressure_bar=1.0, milling_time_h=6.0),
-    "NiFe2O4 · combustion": dict(method="combustion", material_system="NiFe2O4", temperature_c=700.0, pH=8.0, calcination_time_h=2.0, pressure_bar=1.0, milling_time_h=1.0),
+    "TiO2 · sol-gel, 450 °C": dict(method="sol-gel", material_system="TiO2", temperature_c=450.0, pH=7.0, calcination_time_h=2.0, pressure_bar=1.0, milling_time_h=0.0),
+    "TiO2 · co-precipitation, 600 °C": dict(method="co-precipitation", material_system="TiO2", temperature_c=600.0, pH=10.0, calcination_time_h=4.0, pressure_bar=1.0, milling_time_h=0.0),
+    "TiO2 · combustion, 500 °C": dict(method="combustion", material_system="TiO2", temperature_c=500.0, pH=7.0, calcination_time_h=1.0, pressure_bar=1.0, milling_time_h=0.0),
+    "TiO2:Fe · sol-gel, 450 °C": dict(method="sol-gel", material_system="TiO2:Fe", temperature_c=450.0, pH=7.0, calcination_time_h=4.0, pressure_bar=1.0, milling_time_h=0.0),
 }
 CONDITION_KEYS = [
     "temperature_c", "heating_rate_c_min", "annealing_time_h", "atmosphere", "precursor_ratio", "pH",
@@ -84,6 +88,7 @@ DEFAULTS = {
     "atmosphere": "air", "precursor_ratio": 1.0, "pH": 7.0, "solvent_type": "water",
     "concentration_m": 0.5, "pressure_bar": 1.0, "milling_time_h": 2.0,
     "calcination_time_h": 2.0, "method": "sol-gel", "material_system": "TiO2",
+    "use_defect_index": False, "defect_index": 0.25, "instrumental_fwhm": 0.0, "strip_ka2": False,
     "structure": None, "pattern": None, "heatmap": None, "inverse": None, "scenarios": [], "preset": "—",
 }
 
@@ -105,6 +110,22 @@ def _synthesis_from_state() -> SynthesisInput:
     )
 
 
+def _structure_for_prediction() -> StructureFeatures | None:
+    """Analysed structure, with the user's defect-index estimate attached when one is supplied."""
+    feats = st.session_state["structure"]
+    if not st.session_state["use_defect_index"]:
+        return feats
+    value = float(st.session_state["defect_index"])
+    if feats is None:
+        return StructureFeatures(phase="not analysed", defect_index=value, source="user estimate")
+    return replace(feats, defect_index=value)
+
+
+def _available(pred: dict) -> list:
+    """Property keys that are reported for the current material (magnetic outputs may be absent)."""
+    return [k for k in PROPERTY_LABELS if pred.get(k) is not None]
+
+
 def _layout(fig: go.Figure, height: int = 420) -> go.Figure:
     fig.update_layout(
         template="plotly_white", height=height, margin=dict(l=10, r=10, t=50, b=10),
@@ -117,7 +138,9 @@ def _csv_button(frame: pd.DataFrame, label: str, name: str) -> None:
     st.download_button(label, frame.to_csv(index=False).encode(), file_name=name, mime="text/csv")
 
 
-def _fmt(value: float) -> str:
+def _fmt(value: float | None) -> str:
+    if value is None:
+        return "n/a"
     return f"{value:.3g}" if abs(value) < 1e-2 or abs(value) >= 1e4 else f"{value:,.2f}"
 
 
@@ -140,20 +163,34 @@ def _scenario_frame() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+CALIBRATION_NOTE = (
+    "Band gap and surface area are fitted to the literature table (137 TiO2 rows, 30 papers). "
+    "Leave-one-paper-out error: band gap MAE 0.145 eV (R² 0.35); surface area from temperature MAE 46.5 m²/g "
+    "(R² −0.13, no better than a constant by R²). All other properties are illustrative and unvalidated."
+)
+
+
+def _cell(value: object) -> str:
+    """Text safe for a Markdown table cell."""
+    return str(value).replace("|", "\\|").replace("\n", " ")
+
+
 def _report_markdown(synthesis: SynthesisInput, pred: dict) -> str:
     feats = st.session_state["structure"]
     lines = [
         "# ThanimamPro report", f"Generated: {datetime.now():%Y-%m-%d %H:%M}", "",
         "## Synthesis conditions", "| Parameter | Value |", "|---|---|",
-        *[f"| {k} | {v} |" for k, v in synthesis.to_dict().items()], "", "## Structure",
+        *[f"| {k} | {_cell(v)} |" for k, v in synthesis.to_dict().items()], "", "## Structure",
     ]
     if feats:
-        lines += ["| Descriptor | Value |", "|---|---|", *[f"| {k} | {v} |" for k, v in feats.to_dict().items()]]
+        lines += ["| Descriptor | Value |", "|---|---|",
+                  *[f"| {k} | {_cell('not available' if v is None else v)} |" for k, v in feats.to_dict().items()]]
     else:
-        lines.append("No structure file analysed; default structural priors used.")
-    lines += ["", "## Predicted properties", "| Property | Value | Unit |", "|---|---|---|",
-              *[f"| {PROPERTY_LABELS[k][0]} | {_fmt(v)} | {PROPERTY_LABELS[k][1]} |" for k, v in pred.items()], "",
-              "> Predictions come from a baseline surrogate with illustrative coefficients, not fitted to experimental data."]
+        lines.append("No structure file analysed.")
+    lines += ["", "## Predicted properties", "| Property | Value | Unit | Status |", "|---|---|---|---|",
+              *[f"| {PROPERTY_LABELS[k][0]} | {_fmt(v)} | {PROPERTY_LABELS[k][1]} | "
+                f"{'calibrated' if k in CALIBRATED_PROPERTIES else 'illustrative'} |" for k, v in pred.items() if v is not None], "",
+              "> " + CALIBRATION_NOTE, *[f"> Warning: {w}" for w in scope_warnings(synthesis)]]
     return "\n".join(lines)
 
 
@@ -183,20 +220,29 @@ def _sidebar() -> None:
         with st.expander("Processing"):
             st.number_input("Pressure (bar)", 0.1, 500.0, key="pressure_bar")
             st.number_input("Milling time (h)", 0.0, 72.0, key="milling_time_h")
+        with st.expander("Defect index (optional)"):
+            st.checkbox("Supply my own estimate", key="use_defect_index",
+                        help="A diffraction pattern does not determine a defect index. Without an estimate, "
+                             "the illustrative properties use 0.25. Calibrated properties do not use it.")
+            st.slider("Defect index (0 = none, 1 = high)", 0.0, 1.0, step=0.05, key="defect_index",
+                      disabled=not st.session_state["use_defect_index"])
         st.button("Reset conditions", on_click=_apply,
-                  args=({k: v for k, v in DEFAULTS.items() if k in CONDITION_KEYS} | {"preset": "—"},))
+                  args=({k: v for k, v in DEFAULTS.items() if k in CONDITION_KEYS}
+                        | {"preset": "—", "use_defect_index": False, "defect_index": 0.25},))
 
 
 def _stepper(n_scenarios: int) -> None:
     feats = st.session_state["structure"]
     steps = [
         ("1 · Conditions", f"{st.session_state['material_system']} · {st.session_state['method']}", True),
-        ("2 · Structure", f"{feats.phase} · {feats.size_method}" if feats else "optional · upload in Structure tab", feats is not None),
+        ("2 · Structure", f"{feats.phase} · size: {feats.size_method}" if feats else "optional · upload in Structure tab", feats is not None),
         ("3 · Results", "live — updates as you edit", True),
         ("4 · Scenarios", f"{n_scenarios} saved" if n_scenarios else "save one to compare", n_scenarios > 0),
     ]
-    html = "".join(f'<div class="tp-step {"done" if ok else ""}"><b>{t}</b><span>{v}</span></div>' for t, v, ok in steps)
-    st.markdown(f'<div class="tp-steps">{html}</div>', unsafe_allow_html=True)
+    # User-typed text (material system) is escaped before it enters the markup.
+    markup = "".join(f'<div class="tp-step {"done" if ok else ""}"><b>{html.escape(t)}</b><span>{html.escape(v)}</span></div>'
+                     for t, v, ok in steps)
+    st.markdown(f'<div class="tp-steps">{markup}</div>', unsafe_allow_html=True)
 
 
 # ----------------------------------------------------------------------------- results
@@ -216,20 +262,23 @@ def _absorption_figure(edge_nm: float, gap: float) -> go.Figure:
 
 
 def _tab_results(synthesis: SynthesisInput) -> None:
-    structure = st.session_state["structure"]
+    structure = _structure_for_prediction()
     pred = predict_properties(synthesis, structure).to_dict()
-    st.markdown(
-        '<div class="tp-note">Baseline surrogate with illustrative coefficients, <b>not fitted to '
-        "experimental data</b>. Use it for trends and workflow, not for quantitative claims.</div>",
-        unsafe_allow_html=True,
-    )
+    st.markdown(f'<div class="tp-note">{html.escape(CALIBRATION_NOTE)}</div>', unsafe_allow_html=True)
     st.write("")
     ref = st.session_state["scenarios"][-1]["properties"] if st.session_state["scenarios"] else None
-    headline = ["band_gap_ev", "absorption_edge_nm", "specific_surface_area_m2_g", "conductivity_s_cm"]
-    for col, key in zip(st.columns(len(headline)), headline):
+    measured_size = structure is not None and structure.crystallite_size_nm is not None
+    basis = {
+        "band_gap_ev": "calibrated · held-out MAE 0.145 eV",
+        "absorption_edge_nm": "1239.84 / band gap",
+        "specific_surface_area_m2_g": ("geometric, from measured crystallite size · MAE 33.7 m²/g (upper bound)"
+                                       if measured_size else "calibrated on temperature · held-out MAE 46.5 m²/g"),
+    }
+    for col, key in zip(st.columns(len(CALIBRATED_PROPERTIES)), CALIBRATED_PROPERTIES):
         label, unit = PROPERTY_LABELS[key]
-        delta = None if ref is None else f"{pred[key] - ref[key]:+.3g} vs last saved"
+        delta = None if ref is None or ref.get(key) is None else f"{pred[key] - ref[key]:+.3g} vs last saved"
         col.metric(f"{label} ({unit})", _fmt(pred[key]), delta=delta, delta_color="off")
+        col.caption(basis[key])
 
     gap = pred["band_gap_ev"]
     edge = pred["absorption_edge_nm"]
@@ -239,7 +288,7 @@ def _tab_results(synthesis: SynthesisInput) -> None:
 
     st.markdown("#### Sensitivity")
     c1, c2 = st.columns([1, 3])
-    prop = c1.selectbox("Property", list(PROPERTY_LABELS), format_func=lambda k: PROPERTY_LABELS[k][0], key="sens_prop")
+    prop = c1.selectbox("Property", _available(pred), format_func=lambda k: PROPERTY_LABELS[k][0], key="sens_prop")
     c1.caption("One variable at a time: temperature ±50 °C, pH ±1, pressure ±10 %.")
     sens = pd.DataFrame(one_at_a_time(synthesis, structure, prop))
     if sens["swing"].max() == 0:
@@ -253,13 +302,17 @@ def _tab_results(synthesis: SynthesisInput) -> None:
                           yaxis=dict(autorange="reversed"), legend=dict(orientation="h", y=-0.2))
         c2.plotly_chart(_layout(fig, 280), key="tornado")
 
-    with st.expander("All predicted properties", expanded=False):
-        frame = pd.DataFrame([{"Property": PROPERTY_LABELS[k][0], "Unit": PROPERTY_LABELS[k][1], "Value": v}
-                              for k, v in pred.items()])
+    with st.expander("All predicted properties (including illustrative, unvalidated ones)", expanded=False):
+        frame = pd.DataFrame([{"Property": PROPERTY_LABELS[k][0], "Unit": PROPERTY_LABELS[k][1], "Value": v,
+                               "Status": "calibrated" if k in CALIBRATED_PROPERTIES else "illustrative"}
+                              for k, v in pred.items() if v is not None])
+        if pred.get("curie_temperature_k") is None:
+            st.caption("Curie temperature and saturation magnetisation are reported only for systems containing Fe, Co, Ni, Mn, Cr or Gd.")
         left, right = st.columns([2, 3])
         left.dataframe(frame.assign(Value=frame["Value"].map(_fmt)), hide_index=True)
         _csv_button(frame, "Download CSV", "thanimampro_predictions.csv")
-        fig = px.bar(frame, x="Property", y="Value", color_discrete_sequence=[TEAL], hover_data=["Unit"],
+        fig = px.bar(frame, x="Property", y="Value", color="Status", hover_data=["Unit"],
+                     color_discrete_map={"calibrated": TEAL, "illustrative": "#94A3B8"},
                      title="Property profile (log scale, mixed units)")
         fig.update_yaxes(type="log", exponentformat="e")
         fig.update_layout(xaxis_tickangle=-40, xaxis_title=None)
@@ -286,10 +339,17 @@ def _tab_structure() -> None:
             name, data = uploaded.name, uploaded.getvalue()
         elif sample != "—":
             name, data = sample, (SAMPLES_DIR / sample).read_bytes()
+        st.number_input("Instrumental FWHM (° 2θ)", 0.0, 1.0, step=0.01, format="%.3f", key="instrumental_fwhm",
+                        help="Width of a standard (e.g. LaB6) on the same instrument; removed in quadrature. "
+                             "With 0, the instrument contribution stays in the widths and the size is underestimated.")
+        st.checkbox("Scan contains Kα2 (strip it)", key="strip_ka2",
+                    help="Rachinger correction for unmonochromated Cu radiation. Leave off for Kα1-only data.")
         if st.button("Analyse structure", type="primary", disabled=data is None):
             try:
                 with st.spinner("Detecting peaks and fitting widths…"):
-                    st.session_state["structure"] = analyze_structure_file(name, data)
+                    st.session_state["structure"] = analyze_structure_file(
+                        name, data, instrumental_fwhm_deg=float(st.session_state["instrumental_fwhm"]),
+                        strip_ka2=bool(st.session_state["strip_ka2"]))
                     rows = read_pattern(data.decode("utf-8", errors="ignore"))
                     st.session_state["pattern"] = rows if len(rows) >= 3 else None
                 st.toast(f"Analysed {name}", icon="🔬")
@@ -302,23 +362,19 @@ def _tab_structure() -> None:
     with right:
         feats: StructureFeatures | None = st.session_state["structure"]
         if feats is None:
-            st.info("No structure loaded. Predictions use default structural priors until you analyse a file.")
+            st.info("No structure loaded. The crystallite size is then estimated from the calcination temperature.")
             return
-        c = st.columns(4)
-        c[0].metric("Phase", feats.phase)
-        c[1].metric("Crystallite (nm)", f"{feats.crystallite_size_nm:.1f}")
-        c[2].metric("Microstrain (%)", f"{feats.microstrain_pct:.3f}")
-        c[3].metric("Defect index", f"{feats.defect_index:.2f}")
         c = st.columns(3)
-        c[0].metric("a (Å)", f"{feats.lattice_a:.4f}")
-        c[1].metric("b (Å)", f"{feats.lattice_b:.4f}")
-        c[2].metric("c (Å)", f"{feats.lattice_c:.4f}")
-        st.caption(
-            f"Source: {feats.source} · size/strain method: **{feats.size_method}** · peaks: {feats.n_peaks}. "
-            + ("Widths are not corrected for instrumental broadening (sizes are lower bounds)."
-               if feats.size_method != "heuristic"
-               else "Size and strain are peak-count heuristics; upload a continuous scan for Scherrer / Williamson–Hall analysis.")
-        )
+        c[0].metric("Phase", feats.phase)
+        c[1].metric("Crystallite (nm)", "n/a" if feats.crystallite_size_nm is None else f"{feats.crystallite_size_nm:.1f}")
+        c[2].metric("Microstrain (%)", "n/a" if feats.microstrain_pct is None else f"{feats.microstrain_pct:.3f}")
+        c = st.columns(3)
+        for col, label, value in zip(c, ("a (Å)", "b (Å)", "c (Å)"), (feats.lattice_a, feats.lattice_b, feats.lattice_c)):
+            col.metric(label, "n/a" if value is None else f"{value:.4f}")
+        st.caption(f"Source: {feats.source} · size method: **{feats.size_method}** · peaks detected: {feats.n_peaks}"
+                   f" · peaks used: {feats.n_peaks_used}")
+        if feats.notes:
+            st.caption(feats.notes)
     pattern = st.session_state["pattern"]
     if pattern:
         rows = sorted(pattern)
@@ -326,8 +382,10 @@ def _tab_structure() -> None:
                                    mode="lines" if len(rows) >= 50 else "markers",
                                    line=dict(color=TEAL), marker=dict(size=9, color=TEAL), name="Pattern"))
         if len(rows) >= 50:
-            peaks = detect_peaks(rows)
-            fig.add_trace(go.Scatter(x=[p.two_theta for p in peaks], y=[p.intensity for p in peaks],
+            peaks = detect_peaks(rows, strip_ka2=bool(st.session_state["strip_ka2"]))
+            base = dict(rows)
+            fig.add_trace(go.Scatter(x=[p.two_theta for p in peaks],
+                                     y=[base.get(p.two_theta, p.intensity) for p in peaks],
                                      mode="markers+text", text=[f"{p.two_theta:.1f}°" for p in peaks], textposition="top center",
                                      marker=dict(color="#C2410C", size=9, symbol="triangle-down"), name="Detected peaks"))
         fig.update_layout(title="Diffraction pattern", xaxis_title="2θ (°)", yaxis_title="Intensity (a.u.)")
@@ -335,15 +393,16 @@ def _tab_structure() -> None:
 
 
 def _tab_mapper(synthesis: SynthesisInput) -> None:
+    structure = _structure_for_prediction()
     c = st.columns([2, 2, 2, 1])
-    prop = c[0].selectbox("Property", list(PROPERTY_LABELS), format_func=lambda k: f"{PROPERTY_LABELS[k][0]} ({PROPERTY_LABELS[k][1]})", key="map_prop")
+    prop = c[0].selectbox("Property", _available(predict_properties(synthesis, structure).to_dict()), format_func=lambda k: f"{PROPERTY_LABELS[k][0]} ({PROPERTY_LABELS[k][1]})", key="map_prop")
     temp_range = c[1].slider("Temperature range (°C)", 100, 1500, (450, 900), step=10)
     ph_range = c[2].slider("pH range", 0.0, 14.0, (2.0, 12.0), step=0.2)
     points = c[3].slider("Grid", 5, 50, 25)
     view = st.radio("View", ["Heatmap", "3D surface"], horizontal=True)
     # Live: recomputed on every change (grid of at most 2,500 cheap evaluations).
     with st.spinner("Computing map…"):
-        map_df = build_property_map(synthesis, st.session_state["structure"], float(temp_range[0]), float(temp_range[1]),
+        map_df = build_property_map(synthesis, structure, float(temp_range[0]), float(temp_range[1]),
                                     float(ph_range[0]), float(ph_range[1]), points, prop)
     st.session_state["heatmap"] = map_df
     label, unit = PROPERTY_LABELS[prop]
@@ -363,51 +422,64 @@ def _tab_mapper(synthesis: SynthesisInput) -> None:
                           scene=dict(xaxis_title="Temperature (°C)", yaxis_title="pH", zaxis_title=unit))
     st.plotly_chart(_layout(fig, 520), key="map")
     lo, hi = float(map_df["value"].min()), float(map_df["value"].max())
-    st.caption(f"Range over the grid: {_fmt(lo)} – {_fmt(hi)} {unit}. Star = current conditions.")
+    st.caption(f"Range over the grid: {_fmt(lo)} – {_fmt(hi)} {unit}. Star = current conditions. "
+               + ("This property is calibrated on temperature only; the literature table does not support a pH dependence."
+                  if prop in CALIBRATED_PROPERTIES else "Illustrative, unvalidated property."))
     _csv_button(map_df.rename(columns={"value": prop}), "Download grid CSV", f"thanimampro_{prop}_map.csv")
 
 
 def _tab_inverse(synthesis: SynthesisInput) -> None:
+    structure = _structure_for_prediction()
     c = st.columns(4)
-    target = c[0].number_input("Target band gap (eV)", 0.5, 6.0, 2.5, step=0.05)
+    target = c[0].number_input("Target band gap (eV)", 0.5, 6.0, 3.15, step=0.05)
     min_sa = c[1].number_input("Min surface area (m²/g)", 1.0, 500.0, 50.0, step=1.0)
-    max_ps = c[2].number_input("Max particle size (nm)", 2.0, 500.0, 20.0, step=1.0)
+    max_ps = c[2].number_input("Max crystallite size (nm)", 2.0, 500.0, 20.0, step=1.0)
     top_k = c[3].number_input("Suggestions", 1, 20, 5)
     if st.button("Suggest conditions", type="primary"):
-        with st.spinner("Searching the condition grid…"):
+        with st.spinner("Searching calcination temperatures…"):
             st.session_state["inverse"] = {
                 "frame": pd.DataFrame(suggest_synthesis_conditions(
                     synthesis, DesiredPropertyTargets(float(target), float(min_sa), float(max_ps)),
-                    st.session_state["structure"], top_k=int(top_k))),
+                    structure, top_k=int(top_k))),
                 "target": (float(target), float(min_sa)),
+                "range": reachable_band_gap_range(synthesis, structure),
+                "material": synthesis.material_system,
             }
         st.toast("Suggestions ready", icon="🎯")
     result = st.session_state["inverse"]
     if result is None:
         st.info("Set targets and press **Suggest conditions**.")
         return
-    frame, (t_bg, t_sa) = result["frame"], result["target"]
-    st.caption("Grid search over temperature, pH and calcination time. Lower score = closer to the targets.")
+    frame, (t_bg, t_sa), (lo, hi) = result["frame"], result["target"], result["range"]
+    if not bool(frame["target_reachable"].any()):
+        st.warning(f"A band gap of {t_bg:.2f} eV is outside what the surrogate predicts for {result['material']} "
+                   f"over the calibrated temperature range ({lo:.2f}–{hi:.2f} eV). The rows below are the nearest "
+                   "conditions, not solutions. A doped system (written 'TiO2:Fe') shifts the range by −0.31 eV.")
+    elif not bool(frame["meets_all_targets"].any()):
+        st.warning("The band gap is attainable, but no calcination temperature in the list meets the band-gap, "
+                   "surface-area and crystallite-size targets together. The rows below are the closest compromises.")
+    st.caption("Search over calcination temperature (200–1,100 °C, 25 °C steps), the only variable the calibrated "
+               "relations respond to. Lower score = closer to the targets.")
     left, right = st.columns([3, 2])
     left.dataframe(frame, hide_index=True)
     fig = px.scatter(frame, x="pred_band_gap_ev", y="pred_surface_area_m2_g", color="score", size_max=14,
-                     color_continuous_scale="Tealrose_r", hover_data=["temperature_c", "pH", "calcination_time_h"],
+                     color_continuous_scale="Tealrose_r", hover_data=["temperature_c", "estimated_crystallite_size_nm"],
                      labels={"pred_band_gap_ev": "Band gap (eV)", "pred_surface_area_m2_g": "Surface area (m²/g)"})
     fig.add_trace(go.Scatter(x=[t_bg], y=[t_sa], mode="markers", name="Target",
                              marker=dict(symbol="star", size=16, color="#C2410C")))
     fig.update_layout(title="Candidates vs target")
     right.plotly_chart(_layout(fig, 340), key="inv_scatter")
     pick = st.selectbox("Candidate to try", frame.index, format_func=lambda i: (
-        f"#{i + 1}: {frame.at[i, 'temperature_c']:.0f} °C, pH {frame.at[i, 'pH']:.0f}, calcination {frame.at[i, 'calcination_time_h']:.0f} h"))
+        f"#{i + 1}: {frame.at[i, 'temperature_c']:.0f} °C (band gap {frame.at[i, 'pred_band_gap_ev']:.2f} eV)"))
     row = frame.loc[pick]
-    st.button("Apply to sidebar", on_click=_apply, type="primary", args=({
-        "temperature_c": float(row["temperature_c"]), "pH": float(row["pH"]),
-        "calcination_time_h": float(row["calcination_time_h"]), "preset": "—"},))
+    st.button("Apply to sidebar", on_click=_apply, type="primary",
+              args=({"temperature_c": float(row["temperature_c"]), "preset": "—"},))
     _csv_button(frame, "Download CSV", "thanimampro_inverse_design.csv")
 
 
 def _tab_scenarios(synthesis: SynthesisInput) -> None:
-    pred = predict_properties(synthesis, st.session_state["structure"]).to_dict()
+    structure = _structure_for_prediction()
+    pred = predict_properties(synthesis, structure).to_dict()
     scenarios = st.session_state["scenarios"]
     if not scenarios:
         st.info("No scenarios yet. Save the current conditions from the **Results** tab, change a parameter, and save again to compare.")
@@ -429,8 +501,8 @@ def _tab_scenarios(synthesis: SynthesisInput) -> None:
     c = st.columns(2)
     c[0].download_button("Download report (Markdown)", md.encode(), "thanimampro_report.md", "text/markdown")
     c[1].download_button("Download inputs + outputs (JSON)", json.dumps(
-        {"conditions": synthesis.to_dict(), "structure": st.session_state["structure"].to_dict() if st.session_state["structure"] else None,
-         "predictions": pred}, indent=2).encode(), "thanimampro_run.json", "application/json")
+        {"conditions": synthesis.to_dict(), "structure": structure.to_dict() if structure else None,
+         "predictions": pred, "warnings": scope_warnings(synthesis), "note": CALIBRATION_NOTE}, indent=2).encode(), "thanimampro_run.json", "application/json")
     with st.expander("Preview report"):
         st.markdown(md)
 
@@ -472,6 +544,8 @@ def main() -> None:
         st.error(f"Invalid synthesis conditions: {exc}")
         return
     _stepper(len(st.session_state["scenarios"]))
+    for message in scope_warnings(synthesis):
+        st.warning(message)
     tabs = st.tabs(["Results", "Structure", "Relationship map", "Inverse design", "Scenarios & report", "Literature"])
     with tabs[0]:
         _tab_results(synthesis)
