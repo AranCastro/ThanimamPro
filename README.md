@@ -1,4 +1,4 @@
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18648129.svg)](https://doi.org/10.5281/zenodo.18648129)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18648128.svg)](https://doi.org/10.5281/zenodo.18648128)
 [![CI](https://github.com/AranCastro/ThanimamPro/actions/workflows/python.yml/badge.svg)](https://github.com/AranCastro/ThanimamPro/actions/workflows/python.yml)
 
 # ThanimamPro
@@ -7,9 +7,9 @@
 curated literature table for titanium dioxide (TiO2) and doped TiO2 in one open workflow. It is
 written in Python with a Streamlit interface.
 
-The archived release is v0.1.1 (DOI above). The code on this branch is the development version
-0.2.0.dev0 and differs from that archive; see `CLAUDE-OUTPUTS/thanimampro/` for the audit that
-led to the changes.
+This is version 0.2.0. The DOI above is the Zenodo concept DOI, which resolves to the latest archived
+release; version 0.1.1 is archived as https://doi.org/10.5281/zenodo.18648129. Changes are listed in
+`CHANGELOG.md`.
 
 ---
 
@@ -160,9 +160,6 @@ noise of 2% of the maximum intensity produces no spurious peak and a size error 
   synthetic scans; no measured reference scan is included.
 - **Literature table.** 22 of 137 rows have been compared with the source full text; open checks
   are listed in `docs/literature_search_log_v6.md`.
-- **`ugp`.** The `ugp` package (command `ugp`) is a separate geothermobarometry scaffold. Its
-  calculator engines are placeholders that return fixed demonstration values flagged
-  `not-implemented`.
 
 ---
 

@@ -21,7 +21,7 @@ bibliography: paper.bib
 
 # Summary
 
-ThanimamPro is an open-source Python package with a Streamlit interface [@streamlit] for recording synthesis conditions of titanium dioxide (TiO2) and doped TiO2, analysing laboratory X-ray diffraction (XRD) scans, and comparing the result with a curated table of published measurements. The package contains four parts: a validated schema for synthesis and structural records; a line-broadening routine that returns crystallite size and microstrain from continuous Cu Kα scans; a literature table of 137 experimental records from 30 papers, each traceable to a DOI; and three linear relations fitted to that table, which are reported together with their leave-one-paper-out error. The interface adds property maps, a search over calcination temperature against property targets, scenario comparison and report export. Version 0.1.1 is archived on Zenodo (https://doi.org/10.5281/zenodo.18648129); this paper describes the development version 0.2.0.
+ThanimamPro is an open-source Python package with a Streamlit interface [@streamlit] for recording synthesis conditions of titanium dioxide (TiO2) and doped TiO2, analysing laboratory X-ray diffraction (XRD) scans, and comparing the result with a curated table of published measurements. The package contains four parts: a validated schema for synthesis and structural records; a line-broadening routine that returns crystallite size and microstrain from continuous Cu Kα scans; a literature table of 137 experimental records from 30 papers, each traceable to a DOI; and three linear relations fitted to that table, which are reported together with their leave-one-paper-out error. The interface adds property maps, a search over calcination temperature against property targets, scenario comparison and report export. This paper describes version 0.2.0; version 0.1.1 is archived on Zenodo (https://doi.org/10.5281/zenodo.18648129).
 
 # Statement of need
 
@@ -45,11 +45,11 @@ The core package `thanimampro_api` has no dependency on the interface and uses o
 
 **Calibrated relations.** `scripts/fit_surrogate.py` fits the band gap to temperature and a doping indicator, and the logarithms of BET surface area and crystallite size to calcination temperature, by ordinary least squares. Each DOI is held out in turn. A unit test refits the shipped table and fails if the constants in the code differ, so the published coefficients cannot drift from the data. When a crystallite size has been measured, the surface area is taken from the geometric relation for dense spheres. Functions `scope_warnings` and `reachable_band_gap_range` state when an input lies outside the calibrated domain or a target cannot be met.
 
-**Scope.** Seven further properties in the interface are illustrative expressions without validation and are labelled as such. The repository also contains `ugp`, an unrelated geothermobarometry scaffold with placeholder engines, which is outside this paper.
+**Scope.** Seven further properties in the interface are illustrative expressions without validation and are labelled as such.
 
 # Research impact statement
 
-[AUTHOR TO CONFIRM BEFORE SUBMISSION: state any publication, thesis, course or external group that has used the software. The repository itself records none.] The evidence that can be verified from the repository is the reproducible material below.
+The software has not yet been used in a publication, thesis or course, and no external users are known to the author. The evidence offered is therefore the reproducible material in the repository.
 
 *Benchmark.* On held-out papers the band-gap relation has a mean absolute error (MAE) of 0.145 eV and R² = 0.35 (n = 76 rows, 19 papers), against 0.186 eV and −0.08 for a constant. The temperature relation for surface area has an MAE of 46.5 m²/g and R² = −0.13 (n = 95 rows, 20 papers) and is no better than a constant by R². The geometric relation has an MAE of 33.7 m²/g and R² = 0.48 with a bias of +24.7 m²/g (n = 55 rows, 10 papers). The table mixes direct and indirect Tauc analyses, which differ by up to 0.29 eV for one sample in one source [@mancuso2021]; this limits the accuracy any model of the pooled column can reach.
 
@@ -57,18 +57,18 @@ The core package `thanimampro_api` has no dependency on the interface and uses o
 
 *Data.* Twenty-two of the 137 rows were compared with the source full text, including all rows from @kim2021, and agreed. One DOI printed by a journal is not registered and is flagged in the table.
 
-*Community readiness.* The repository has continuous integration on Python 3.10 to 3.13, 42 tests, contribution guidelines and an MIT licence.
+*Community readiness.* The repository has continuous integration on Python 3.10 to 3.13, 39 tests, contribution guidelines and an MIT licence.
 
 # AI usage disclosure
 
-A generative AI coding assistant (Claude Code, Anthropic) was used in November 2026 for the following: an audit of version 0.1.1; the rewrite of the XRD routine, the calibration script, the validation of inputs, the tests and the interface; the compilation of the literature table by web search and retrieval of open-access papers; and the drafting of the documentation and of this manuscript. The search queries, inclusion decisions and withheld values are recorded in `docs/literature_search_log_v1.md` to `v6.md`.
+Generative AI tools assisted the writing of the original release, version 0.1.1. A generative AI coding assistant (Claude Code, Anthropic) was then used in November 2026 for the following: an audit of version 0.1.1; the rewrite of the XRD routine, the calibration script, the validation of inputs, the tests and the interface; the compilation of the literature table by web search and retrieval of open-access papers; and the drafting of the documentation and of this manuscript. The search queries, inclusion decisions and withheld values are recorded in `docs/literature_search_log_v1.md` to `v6.md`.
 
 Verification within those sessions consisted of the automated tests, the synthetic-scan checks, resolution of the dataset DOIs at Crossref, and a comparison of 22 table rows with source full text retrieved independently of the tool used for compilation. The remaining 115 rows were extracted through a summarising retrieval tool and have not been independently checked.
 
-[AUTHOR TO COMPLETE BEFORE SUBMISSION: state whether AI tools were used for version 0.1.1, and describe the author's own review of the code, the table and this text.]
+The author directed the work, took the decisions on scope (restriction to TiO2, removal of an unrelated package, the release) and approved the changes for merging. The automated checks above, and not a line-by-line human review, are the basis for the stated accuracy figures.
 
 # Acknowledgements
 
-The author acknowledges the developers of NumPy, pandas, Plotly and Streamlit. [AUTHOR TO COMPLETE: funding statement.]
+The author acknowledges the developers of NumPy, pandas, Plotly and Streamlit. This work received no external funding.
 
 # References

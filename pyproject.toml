@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "thanimampro"
-version = "0.2.0.dev0"
+version = "0.2.0"
 description = "Synthesis-Structure-Property Integration Platform"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,11 +22,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8.3", "ruff>=0.6"]
 
-[project.scripts]
-ugp = "ugp.cli:main"
-
 [tool.setuptools.packages.find]
-include = ["thanimampro_api*", "ugp*"]
+include = ["thanimampro_api*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
