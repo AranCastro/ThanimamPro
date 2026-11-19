@@ -7,8 +7,15 @@ authors:
     given-names: "Aran"
     affiliation: "Geospatial Campus, India"
     orcid: "https://orcid.org/0000-0001-8038-606X"
-version: "0.1.1"
-date-released: 2026-02-15
-doi: 10.5281/zenodo.18648129
+version: "0.2.0"
+date-released: 2026-11-19
+doi: 10.5281/zenodo.18648128
 url: "https://github.com/AranCastro/ThanimamPro"
 license: "MIT"
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.18648128
+    description: "Zenodo concept DOI (all versions; resolves to the latest release)"
+  - type: doi
+    value: 10.5281/zenodo.18648129
+    description: "Zenodo archive of version 0.1.1"

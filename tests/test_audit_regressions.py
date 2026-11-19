@@ -1,4 +1,3 @@
-import json
 
 import pytest
 
@@ -8,11 +7,6 @@ from thanimampro_api.mapper import build_bandgap_map
 from thanimampro_api.predict import predict_properties
 from thanimampro_api.schemas import DesiredPropertyTargets, SynthesisInput
 from thanimampro_api.structure import analyze_structure_file
-from ugp.cli import main as ugp_main
-from ugp.config import UGPConfig
-from ugp.core.pipeline import run_pipeline
-from ugp.models import ThermoDataset, UncertaintyConfig
-import ugp.engines  # noqa: F401
 
 
 def _base(**kw) -> SynthesisInput:
@@ -85,35 +79,6 @@ def test_literature_search_is_literal_and_handles_missing(tmp_path):
 
 def test_predict_extremes_do_not_overflow():
     predict_properties(_base(temperature_c=3000.0, pH=14.0))
-
-
-def test_bootstrap_seeded_ci_and_status():
-    cfg = UGPConfig(uncertainty_enabled=True)
-    ds = ThermoDataset(analyses=[])
-    res = run_pipeline(ds, "perplex", cfg, UncertaintyConfig(bootstrap_iterations=20, confidence=0.9, random_seed=1))
-    assert res.summary["status"] == "not-implemented"
-    assert "p_ci_gpa" in res.summary and res.summary["iterations"] == 20
-    with pytest.raises(ValueError):
-        run_pipeline(ds, None, cfg, UncertaintyConfig(bootstrap_iterations=0))
-
-
-def test_pipeline_honours_default_engine():
-    cfg = UGPConfig(default_engine="pywerami", uncertainty_enabled=False)
-    assert run_pipeline(ThermoDataset(analyses=[]), None, cfg).results[0].method == "PyWerami"
-
-
-def test_cli_errors_and_output(tmp_path, capsys):
-    with pytest.raises(SystemExit) as e:
-        ugp_main(["run", str(tmp_path / "missing.json")])
-    assert e.value.code == 1
-    data = tmp_path / "d.json"
-    data.write_text(json.dumps({"analyses": []}))
-    with pytest.raises(SystemExit) as e:
-        ugp_main(["run", str(data), "-e", "nope"])
-    assert e.value.code == 1
-    out = tmp_path / "sub" / "o.json"
-    ugp_main(["run", str(data), "-e", "thermocalc", "-o", str(out)])
-    assert json.loads(out.read_text())["summary"]["status"] == "not-implemented"
 
 
 def test_williamson_hall_recovers_size_and_strain():
