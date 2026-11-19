@@ -4,23 +4,29 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "thanimampro"
-version = "0.1.0"
+version = "0.1.1"
 description = "Synthesis-Structure-Property Integration Platform"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
-  { name = "ThanimamPro Contributors" }
+  { name = "Aran Castro" }
 ]
 dependencies = [
-  "streamlit>=1.41",
+  "streamlit>=1.50",
   "pandas>=2.2",
   "numpy>=2.1",
   "plotly>=5.24"
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=8.3"]
+
+[project.scripts]
+ugp = "ugp.cli:main"
+
 [tool.setuptools.packages.find]
-include = ["thanimampro_api*"]
+include = ["thanimampro_api*", "ugp*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

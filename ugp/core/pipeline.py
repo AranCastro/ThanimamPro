@@ -12,12 +12,9 @@ def run_pipeline(
     config: UGPConfig,
     uncertainty: Optional[UncertaintyConfig] = None,
 ) -> PTEnsemble:
-    engine_factory = resolve_engine(engine_name)
-    engine = engine_factory(config)
-    base_results = engine.run(dataset)
+    engine = resolve_engine(engine_name or config.default_engine)(config)
 
     if config.uncertainty_enabled and uncertainty:
         return bootstrap_ensemble(engine, dataset, uncertainty)
 
-    return base_results
-
+    return engine.run(dataset)
