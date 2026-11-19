@@ -1,5 +1,6 @@
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from ugp.config import UGPConfig
@@ -22,6 +23,7 @@ def _build_parser() -> argparse.ArgumentParser:
     run_cmd.add_argument("--bootstrap", action="store_true", help="Enable bootstrap uncertainty")
     run_cmd.add_argument("--iterations", type=int, default=200, help="Bootstrap iterations")
     run_cmd.add_argument("--confidence", type=float, default=0.95, help="Confidence level")
+    run_cmd.add_argument("--seed", type=int, default=None, help="Random seed for reproducible bootstrap")
 
     sub.add_parser("engines", help="List available engines")
     return parser
@@ -37,19 +39,27 @@ def main(argv=None):
         return
 
     if args.command == "run":
-        dataset = read_dataset(args.input)
+        try:
+            dataset = read_dataset(args.input)
+        except (OSError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
         config = UGPConfig(
             uncertainty_enabled=args.bootstrap,
             uncertainty_iterations=args.iterations,
             uncertainty_confidence=args.confidence,
+            random_seed=args.seed,
         )
         uncertainty = None
         if args.bootstrap:
             uncertainty = UncertaintyConfig(
                 bootstrap_iterations=args.iterations,
                 confidence=args.confidence,
+                random_seed=args.seed,
             )
-        result = run_pipeline(dataset, args.engine, config, uncertainty)
+        try:
+            result = run_pipeline(dataset, args.engine, config, uncertainty)
+        except (KeyError, ValueError) as exc:
+            parser.exit(1, f"error: {exc}\n")
 
         if args.output:
             write_json(result, args.output)
@@ -59,4 +69,4 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

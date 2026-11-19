@@ -1,11 +1,13 @@
 ---
-title: "ThanimamPro: An open platform for synthesis–structure–property integration in materials research"
+title: "ThanimamPro: An open workflow linking synthesis conditions, XRD line-broadening analysis and literature data for TiO2 nanomaterials"
 tags:
-  - materials-informatics
-  - synthesis-optimization
-  - inverse-design
-  - computational-materials
-  - streamlit
+  - Python
+  - materials informatics
+  - titanium dioxide
+  - X-ray diffraction
+  - Scherrer analysis
+  - band gap
+  - Streamlit
 authors:
   - name: Aran Castro
     orcid: 0000-0001-8038-606X
@@ -13,54 +15,60 @@ authors:
 affiliations:
   - name: Geospatial Campus, India
     index: 1
-date: 15 February 2026
+date: 19 November 2026
 bibliography: paper.bib
 ---
 
 # Summary
 
-ThanimamPro is an open-source computational platform that integrates synthesis parameters, structural descriptors, and functional property prediction within a unified workflow for materials research. The software combines an interactive web-based interface built using Streamlit with a modular Python backend that implements schema handling, lightweight structural parsing, surrogate modelling, and inverse parameter exploration.
+ThanimamPro is an open-source Python package with a Streamlit interface [@streamlit] for recording synthesis conditions of titanium dioxide (TiO2) and doped TiO2, analysing laboratory X-ray diffraction (XRD) scans, and comparing the result with a curated table of published measurements. The package contains four parts: a validated schema for synthesis and structural records; a line-broadening routine that returns crystallite size and microstrain from continuous Cu Kα scans; a literature table of 137 experimental records from 30 papers, each traceable to a DOI; and three linear relations fitted to that table, which are reported together with their leave-one-paper-out error. The interface adds property maps, a search over calcination temperature against property targets, scenario comparison and report export. Version 0.1.1 is archived on Zenodo (https://doi.org/10.5281/zenodo.18648129); this paper describes the development version 0.2.0.
 
-The current release enables structured synthesis parameter entry, CIF/XRD upload with descriptor extraction, baseline multi-domain property prediction, synthesis–property heatmap visualization, inverse design assistance, and literature seed dataset search. The platform is designed to support iterative integration of curated datasets and benchmarked models while maintaining reproducibility through versioned releases and archival DOI registration.
+# Statement of need
 
-# Statement of Need
+Reports on oxide nanomaterials give synthesis conditions, XRD results and functional properties in separate places and in inconsistent forms. A researcher who wishes to compare a new sample with earlier work must collect values by hand, decide which temperature a paper refers to, and note whether a band gap came from a direct or an indirect Tauc analysis. The same researcher usually estimates crystallite size from one reflection in a spreadsheet, without recording how overlapping reflections, instrumental broadening or the Kα2 component were treated.
 
-Materials research frequently reports synthesis conditions, structural characterization, and functional properties in fragmented formats across publications and laboratory records. This fragmentation limits reproducibility and constrains systematic exploration of process–structure–property relationships.
+ThanimamPro addresses these two routine tasks for one well-studied system. It provides a single record format for conditions and descriptors, a documented and tested line-broadening analysis, and a literature table whose columns separate calcination, hydrothermal and combustion temperatures and record the form of the Tauc analysis. The intended users are students and researchers in photocatalysis and oxide synthesis who need a transparent first comparison, and developers who need a small, provenance-checked table for testing regression models.
 
-Data-driven materials initiatives, such as the Materials Project \cite{jain2013materials}, have demonstrated the value of structured and accessible computational materials data. However, many experimental workflows still lack integrated tools linking synthesis inputs directly to structural indicators and predicted functional outputs.
+# State of the field
 
-ThanimamPro addresses this gap by providing a structured computational environment where researchers can:
+Large computed databases such as the Materials Project [@jain2013materials], with analysis libraries such as pymatgen [@ong2013pymatgen] and feature libraries such as matminer [@ward2018matminer], serve data-driven work on calculated properties. They do not hold experimental band gaps or surface areas of nanoparticles as a function of synthesis conditions. Text-mined synthesis datasets [@kononova2019] give recipes at scale but no property values. For diffraction, GSAS-II [@toby2013gsas] and similar Rietveld programs give a full treatment of line profiles; they require a structural model and training that a first size estimate does not justify.
 
-1. Enter experimental synthesis settings.
-2. Extract compact descriptors from uploaded structural files.
-3. Estimate functional properties through surrogate models.
-4. Visualize synthesis–property trends interactively.
-5. Generate inverse suggestions from target property inputs.
+ThanimamPro does not compete with these tools. It occupies the gap between them: experimental synthesis–property records for one material family, with a size estimate that needs only a scan. A contribution to an existing package was considered unsuitable because the three parts depend on a common record format and on scope rules specific to the TiO2 literature, such as the separation of temperature types.
 
-The software is intended for researchers in catalysis, electrochemical materials, oxide systems, and related domains where synthesis–structure–property coupling is central to materials optimization.
+# Software design
 
-# Implementation
+The core package `thanimampro_api` has no dependency on the interface and uses only NumPy [@harris2020numpy] and pandas [@mckinney2010]; figures are drawn with Plotly [@plotly].
 
-ThanimamPro is implemented in Python and organised into two primary layers:
+**Records.** `SynthesisInput`, `StructureFeatures` and `DesiredPropertyTargets` are dataclasses that reject non-finite and out-of-range values. A structural descriptor that a file does not determine is `None`. This was a deliberate change from the first release, which substituted default lattice parameters and count-based size estimates; an absent value cannot be mistaken for a measurement.
 
-- **`thanimampro_api`**: a reusable core package responsible for schema definitions, structure descriptor derivation, surrogate prediction logic, inverse search routines, and dataset filtering.
-- **`streamlit_app.py`**: an interactive front-end enabling local execution and public deployment via Streamlit Community Cloud.
+**XRD analysis.** For scans of at least 50 points with a step of 0.1° or less, the routine subtracts a rolling-percentile background, optionally removes Kα2 by the Rachinger recursion [@rachinger1948], detects maxima above five times a noise level estimated from second differences, and measures the full width at half maximum by interpolation. A reflection is used only if it is resolved from its neighbours. Instrumental broadening supplied by the user is removed in quadrature. Size and strain come from a Williamson–Hall fit [@williamson1953] when at least four resolved reflections exist and the strain exceeds twice its standard error; otherwise the intensity-weighted Scherrer size [@patterson1939] is returned and no strain is reported. Half-maximum widths were chosen over profile fitting to keep the method dependency-free and inspectable; the cost is that overlapping reflections are excluded, not deconvolved.
 
-The prediction component currently uses a transparent baseline surrogate formulation to validate the end-to-end integration pipeline. The modular architecture allows replacement with benchmarked regression models trained on curated open datasets.
+**Calibrated relations.** `scripts/fit_surrogate.py` fits the band gap to temperature and a doping indicator, and the logarithms of BET surface area and crystallite size to calcination temperature, by ordinary least squares. Each DOI is held out in turn. A unit test refits the shipped table and fails if the constants in the code differ, so the published coefficients cannot drift from the data. When a crystallite size has been measured, the surface area is taken from the geometric relation for dense spheres. Functions `scope_warnings` and `reachable_band_gap_range` state when an input lies outside the calibrated domain or a target cannot be met.
 
-Continuous integration is configured through GitHub Actions to ensure automated testing across supported Python versions. The software is archived via Zenodo with a versioned DOI to ensure reproducibility and citability.
+**Scope.** Seven further properties in the interface are illustrative expressions without validation and are labelled as such. The repository also contains `ugp`, an unrelated geothermobarometry scaffold with placeholder engines, which is outside this paper.
 
-# Future Work
+# Research impact statement
 
-Planned extensions include:
+[AUTHOR TO CONFIRM BEFORE SUBMISSION: state any publication, thesis, course or external group that has used the software. The repository itself records none.] The evidence that can be verified from the repository is the reproducible material below.
 
-- Integration of literature-trained and benchmarked regression models.
-- Expanded CIF parsing and XRD-based phase identification workflows.
-- Community data submission and validation pipelines.
-- Versioned benchmark datasets with uncertainty-aware prediction reporting.
+*Benchmark.* On held-out papers the band-gap relation has a mean absolute error (MAE) of 0.145 eV and R² = 0.35 (n = 76 rows, 19 papers), against 0.186 eV and −0.08 for a constant. The temperature relation for surface area has an MAE of 46.5 m²/g and R² = −0.13 (n = 95 rows, 20 papers) and is no better than a constant by R². The geometric relation has an MAE of 33.7 m²/g and R² = 0.48 with a bias of +24.7 m²/g (n = 55 rows, 10 papers). The table mixes direct and indirect Tauc analyses, which differ by up to 0.29 eV for one sample in one source [@mancuso2021]; this limits the accuracy any model of the pooled column can reach.
+
+*Validation.* On synthetic scans of known size the routine recovers 5, 10, 20, 50 and 100 nm within 5% and a strain of 0.30% as 0.30%. No measured reference scan is included.
+
+*Data.* Twenty-two of the 137 rows were compared with the source full text, including all rows from @kim2021, and agreed. One DOI printed by a journal is not registered and is flagged in the table.
+
+*Community readiness.* The repository has continuous integration on Python 3.10 to 3.13, 42 tests, contribution guidelines and an MIT licence.
+
+# AI usage disclosure
+
+A generative AI coding assistant (Claude Code, Anthropic) was used in November 2026 for the following: an audit of version 0.1.1; the rewrite of the XRD routine, the calibration script, the validation of inputs, the tests and the interface; the compilation of the literature table by web search and retrieval of open-access papers; and the drafting of the documentation and of this manuscript. The search queries, inclusion decisions and withheld values are recorded in `docs/literature_search_log_v1.md` to `v6.md`.
+
+Verification within those sessions consisted of the automated tests, the synthetic-scan checks, resolution of the dataset DOIs at Crossref, and a comparison of 22 table rows with source full text retrieved independently of the tool used for compilation. The remaining 115 rows were extracted through a summarising retrieval tool and have not been independently checked.
+
+[AUTHOR TO COMPLETE BEFORE SUBMISSION: state whether AI tools were used for version 0.1.1, and describe the author's own review of the code, the table and this text.]
 
 # Acknowledgements
 
-The author acknowledges the open-source Python ecosystem, including pandas \cite{pandas2020} and Streamlit \cite{streamlit2024}, and the JOSS editorial community for advancing reproducible research software standards.
+The author acknowledges the developers of NumPy, pandas, Plotly and Streamlit. [AUTHOR TO COMPLETE: funding statement.]
 
 # References

@@ -14,12 +14,14 @@ class EngineRegistry:
 
     def get(self, name: str) -> Callable:
         if name not in self._engines:
-            raise KeyError(f"Engine '{name}' not found")
+            raise KeyError(f"Engine '{name}' not found; available: {self.available()}")
         return self._engines[name]
 
     def available(self) -> List[str]:
         return sorted(self._engines.keys())
 
+
+DEFAULT_ENGINE = "thermocalc"
 
 registry = EngineRegistry()
 
@@ -35,6 +37,6 @@ def register_engine(name: str):
 
 
 def resolve_engine(name: Optional[str]) -> Callable:
-    target = name or "thermocalc"
+    target = name or DEFAULT_ENGINE
     return registry.get(target)
 
